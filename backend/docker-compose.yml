@@ -22,7 +22,14 @@ services:
         networks:
             - sail
         depends_on:
-            - mysql
+            mysql:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost/"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 30s
     mysql:
         image: 'mysql/mysql-server:8.0'
         ports:
@@ -40,17 +47,16 @@ services:
         networks:
             - sail
         healthcheck:
-            test:
-                - CMD
-                - mysqladmin
-                - ping
-                - '-p${DB_PASSWORD}'
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+            interval: 10s
             retries: 3
             timeout: 5s
     frontend:
         build:
             context: ../frontend
             dockerfile: Dockerfile
+        env_file:
+            - ../frontend/.env.local
         ports:
             - '3000:3000'
         volumes:
@@ -58,6 +64,9 @@ services:
             - '/app/node_modules'
         networks:
             - sail
+        depends_on:
+            laravel.test:
+                condition: service_healthy
         environment:
             - WATCHPACK_POLLING=true
 networks:
