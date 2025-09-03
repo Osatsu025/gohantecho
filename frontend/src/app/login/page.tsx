@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import axios from '@/lib/axios'; // 設定済みのaxiosインスタンスをインポート
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -38,7 +39,7 @@ type State = {
 } | undefined;
 
 const formScheme = z.object({
-    email: z.string().email({message: '有効なメールアドレスではありません'}),
+    email: z.email({message: '有効なメールアドレスではありません'}),
     password: z.string().min(1, { message: 'パスワードを入力してください' }),
 })
 
@@ -101,12 +102,12 @@ export default function LoginPage() {
             <CardHeader>
                 <CardTitle>ログイン</CardTitle>
                 <CardAction>
-                    <Button variant='link'>新規登録</Button>
+                    <Button asChild><Link href='/sign-up'>新規登録</Link></Button>
                 </CardAction>
             </CardHeader>
             <CardContent>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-8' id='login_form'>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-8' id='login-form'>
                         <FormField
                             control={form.control}
                             name='email'
@@ -141,7 +142,7 @@ export default function LoginPage() {
                 </Form>
             </CardContent>
             <CardFooter className='flex-col gap-2'>
-                <Button type='submit' className='w-full' disabled={isLoading} form='login_form'>
+                <Button type='submit' className='w-full' disabled={isLoading} form='login-form'>
                     {isLoading ? 'ログイン中…' : 'ログイン'}
                 </Button>
             </CardFooter>
