@@ -3,6 +3,30 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from '@/lib/axios'; // 設定済みのaxiosインスタンスをインポート
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from "zod";
+
+import { Button } from '@/components/ui/button';
+import {
+    Form,
+    FormControl,
+    FormDescription,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+    Card,
+    CardAction,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
 
 // エラー状態の型定義
 type State = {
@@ -13,33 +37,38 @@ type State = {
     message?: string;
 } | undefined;
 
+const formScheme = z.object({
+    email: z.string().email({message: '有効なメールアドレスではありません'}),
+    password: z.string().min(1, { message: 'パスワードを入力してください' }),
+})
+
 export default function LoginPage() {
     const router = useRouter();
     const [state, setState] = useState<State>();
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        setIsLoading(true);
-        setState(undefined); // 以前のエラーをクリア
+    const form = useForm<z.infer<typeof formScheme>>({
+        resolver: zodResolver(formScheme),
+        defaultValues: {
+            email: "",
+            password: "",
+        },
+    });
 
-        const formData = new FormData(event.currentTarget);
-        const email = formData.get('email');
-        const password = formData.get('password');
+    async function onSubmit(values: z.infer<typeof formScheme>) {
+        
+        setIsLoading(true);
+        setState(undefined);
+        form.clearErrors();
 
         try {
             // 1. CSRF Cookieを取得
             await axios.get('/sanctum/csrf-cookie');
 
             // 2. ログインAPIを呼び出し
-            await axios.post('/login', {
-                email,
-                password,
-            });
+            await axios.post('/login', values);
 
             // 3. ログイン成功後、ダッシュボードなどにリダイレクト
-            // 必要であれば、ここでユーザー情報を再取得してからリダイレクトします。
-            // 例: await mutateUser();
             router.push('/dashboard'); // 遷移先のパスを指定してください
 
         } catch (error: any) {
@@ -49,6 +78,12 @@ export default function LoginPage() {
                 setState({
                     errors: error.response.data.errors,
                 });
+                // react-hook-formにエラーをセット
+                Object.keys(error.response.data.errors).forEach((key) => {
+                    const field = key as 'email' | 'password';
+                    const message = error.response.data.errors[field].join(', ');
+                    form.setError(field, { type: 'server', message });
+                })
             } else {
                 // その他のネットワークエラーなど
                 setState({
@@ -62,42 +97,54 @@ export default function LoginPage() {
     };
 
     return (
-        <form onSubmit={handleSubmit}>
-            {/* Email Input */}
-            <div>
-                <label htmlFor="email">Email</label>
-                <input id="email" type="email" name="email" required />
-                {state?.errors?.email && (
-                    <div style={{ color: 'red' }}>
-                        {state.errors.email.map((error, i) => <p key={i}>{error}</p>)}
-                    </div>
-                )}
-            </div>
+        <Card className='w-full max-w-sm'>
+            <CardHeader>
+                <CardTitle>ログイン</CardTitle>
+                <CardAction>
+                    <Button variant='link'>新規登録</Button>
+                </CardAction>
+            </CardHeader>
+            <CardContent>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-8' id='login_form'>
+                        <FormField
+                            control={form.control}
+                            name='email'
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>メールアドレス</FormLabel>
+                                    <FormControl>
+                                        <Input type='email' placeholder='gohan@example.com' {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField 
+                            control={form.control}
+                            name='password'
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>パスワード</FormLabel>
+                                    <FormControl>
+                                        <Input type='password' {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
-            {/* Password Input */}
-            <div>
-                <label htmlFor="password">Password</label>
-                <input id="password" type="password" name="password" required />
-                 {state?.errors?.password && (
-                    <div style={{ color: 'red' }}>
-                        {state.errors.password.map((error, i) => <p key={i}>{error}</p>)}
-                    </div>
-                )}
-            </div>
-
-            {/* General Error Message */}
-            {state?.message && (
-                <div style={{ color: 'red' }}>
-                    <p>{state.message}</p>
-                </div>
-            )}
-
-            {/* Submit Button */}
-            <div>
-                <button type="submit" disabled={isLoading}>
-                    {isLoading ? 'ログイン中...' : 'ログイン'}
-                </button>
-            </div>
-        </form>
-    );
+                        {state?.message && (
+                            <p className='text-sm font-medium text-destructive'>{state.message}</p>
+                        )}
+                    </form>
+                </Form>
+            </CardContent>
+            <CardFooter className='flex-col gap-2'>
+                <Button type='submit' className='w-full' disabled={isLoading} form='login_form'>
+                    {isLoading ? 'ログイン中…' : 'ログイン'}
+                </Button>
+            </CardFooter>
+        </Card>
+    )
 }
