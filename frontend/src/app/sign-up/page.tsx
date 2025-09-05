@@ -71,7 +71,7 @@ export default function SignUpPage() {
           await axios.post('/register', values);
 
           // 3. ログイン成功後、ダッシュボードなどにリダイレクト
-          router.push('/dashboard'); // 遷移先のパスを指定してください
+          router.push('/');
 
       } catch (error: any) {
           // 4. エラーハンドリング
