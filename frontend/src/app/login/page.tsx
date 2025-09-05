@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import axios from '@/lib/axios'; // 設定済みのaxiosインスタンスをインポート
@@ -29,15 +28,6 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 
-// エラー状態の型定義
-type State = {
-    errors?: {
-        email?: string[];
-        password?: string[];
-    };
-    message?: string;
-} | undefined;
-
 const formScheme = z.object({
     email: z.email({message: '有効なメールアドレスではありません'}),
     password: z.string().min(1, { message: 'パスワードを入力してください' }),
@@ -45,10 +35,10 @@ const formScheme = z.object({
 
 export default function LoginPage() {
     const router = useRouter();
-    const [state, setState] = useState<State>();
-    const [isLoading, setIsLoading] = useState(false);
 
-    const form = useForm<z.infer<typeof formScheme>>({
+    type FormValues = z.infer<typeof formScheme>;
+
+    const form = useForm<FormValues>({
         resolver: zodResolver(formScheme),
         defaultValues: {
             email: "",
@@ -56,11 +46,7 @@ export default function LoginPage() {
         },
     });
 
-    async function onSubmit(values: z.infer<typeof formScheme>) {
-        
-        setIsLoading(true);
-        setState(undefined);
-        form.clearErrors();
+    async function onSubmit(values: FormValues) {
 
         try {
             // 1. CSRF Cookieを取得
@@ -75,25 +61,20 @@ export default function LoginPage() {
         } catch (error: any) {
             // 4. エラーハンドリング
             if (error.response?.status === 422) {
-                // バリデーションエラーの場合
-                setState({
-                    errors: error.response.data.errors,
-                });
                 // react-hook-formにエラーをセット
                 Object.keys(error.response.data.errors).forEach((key) => {
-                    const field = key as 'email' | 'password';
+                    const field = key as keyof FormValues;
                     const message = error.response.data.errors[field].join(', ');
                     form.setError(field, { type: 'server', message });
-                })
+                });
             } else {
                 // その他のネットワークエラーなど
-                setState({
-                    message: 'ログインに失敗しました。もう一度お試しください。',
+                form.setError('root.serverError', {
+                    type: 'server',
+                    message: 'ログインに失敗しました。もう一度お試しください'
                 });
                 console.error('An unexpected error occurred:', error);
             }
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -135,15 +116,17 @@ export default function LoginPage() {
                             )}
                         />
 
-                        {state?.message && (
-                            <p className='text-sm font-medium text-destructive'>{state.message}</p>
+                        {form.formState.errors.root?.serverError && (
+                            <p className='text-sm font-medium text-destructive'>
+                                {form.formState.errors.root.serverError.message}
+                            </p>
                         )}
                     </form>
                 </Form>
             </CardContent>
             <CardFooter className='flex-col gap-2'>
-                <Button type='submit' className='w-full' disabled={isLoading} form='login-form'>
-                    {isLoading ? 'ログイン中…' : 'ログイン'}
+                <Button type='submit' className='w-full' disabled={form.formState.isSubmitting} form='login-form'>
+                    {form.formState.isSubmitting ? 'ログイン中…' : 'ログイン'}
                 </Button>
             </CardFooter>
         </Card>
