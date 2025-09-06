@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import axios from '@/lib/axios'; // 設定済みのaxiosインスタンスをインポート
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -35,6 +35,8 @@ const formScheme = z.object({
 
 export default function LoginPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const redirectUrl = searchParams.get('redirect') || '/';
 
     type FormValues = z.infer<typeof formScheme>;
 
@@ -56,7 +58,8 @@ export default function LoginPage() {
             await axios.post('/login', values);
 
             // 3. ログイン成功後、ダッシュボードなどにリダイレクト
-            router.push('/');
+            router.push(redirectUrl);
+            router.refresh();
 
         } catch (error: any) {
             // 4. エラーハンドリング
