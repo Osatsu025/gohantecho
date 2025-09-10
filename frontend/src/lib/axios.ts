@@ -1,19 +1,11 @@
 import axios from "axios";
 
-const isServer = typeof window === 'undefined';
-
 // サーバサイドとクライアントサイドで接続先のURLを切り替える
-const baseURL = isServer
-  ? process.env.BACKEND_SERVER_URL
-  : process.env.NEXT_PUBLIC_BACKEND_URL;
+const baseURL = process.env.BACKEND_SERVER_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
 
+axios.defaults.baseURL = baseURL;
 axios.defaults.withCredentials = true;
+axios.defaults.withXSRFToken = true;
+axios.defaults.xsrfHeaderName = "X-XSRF-TOKEN";
 
-const axiosInstance = axios.create({
-  baseURL: baseURL,
-  withXSRFToken: true,
-  xsrfHeaderName: "X-XSRF-TOKEN",
-  withCredentials: true,
-});
-
-export default axiosInstance;
+export default axios;
