@@ -1,11 +1,11 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import axios from '@/lib/axios'; // 設定済みのaxiosインスタンスをインポート
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { z } from "zod";
+import { email, z } from "zod";
 
 import { Button } from '@/components/ui/button';
 import {
@@ -30,6 +30,10 @@ import {
 
 export default function SignUpPage() {
 
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect');
+
   const formScheme = z
   .object({
     name: z.string().min(1, { message: 'ニックネームを入力してください' }),
@@ -47,8 +51,6 @@ export default function SignUpPage() {
     }
   });
 
-  const router = useRouter();
-
   type FormValues = z.infer<typeof formScheme>;
 
   const form = useForm<FormValues>({
@@ -64,23 +66,37 @@ export default function SignUpPage() {
   async function onSubmit(values: FormValues) {
 
       try {
-          // 1. CSRF Cookieを取得
+          // CSRF保護を初期化
           await axios.get('/sanctum/csrf-cookie');
 
-          // 2. ログインAPIを呼び出し
-          await axios.post('/register', values);
+          const postData = {
+            name: values.name,
+            email: values.email,
+            password: values.password,
+            password_confirmation: values.passwordConfirmation,
+          };
 
-          // 3. ログイン成功後、ダッシュボードなどにリダイレクト
-          router.push('/');
+          const response = await axios.post('/api/register', postData);
+
+          // 登録後、redirectパラメータがあればそこへ、なければ'/'へリダイレクト
+          router.push(redirect || '/');
 
       } catch (error: any) {
           // 4. エラーハンドリング
           if (error.response?.status === 422) {
+              // snake_caseのキーをcamelCaseに変換するマッピング
+              const fieldMap: { [key: string]: keyof FormValues } = {
+                  'password_confirmation': 'passwordConfirmation',
+              };
+
               // react-hook-formにエラーをセット
               Object.keys(error.response.data.errors).forEach((key) => {
-                  const field = key as keyof FormValues;
-                  const message = error.response.data.errors[field].join(', ');
-                  form.setError(field, { type: 'server', message });
+                  // マッピングが存在すればそれを使用し、なければ元のキーをそのまま使う
+                  const fieldName = fieldMap[key] || (key as keyof FormValues);
+                  if (Object.keys(form.getValues()).includes(fieldName)) {
+                      const message = error.response.data.errors[key].join(', ');
+                      form.setError(fieldName, { type: 'server', message });
+                  }
               })
           } else {
               // その他のネットワークエラーなど
@@ -88,7 +104,11 @@ export default function SignUpPage() {
                     type: 'server',
                     message: '登録に失敗しました。もう一度お試しください'
                 });
-            console.error('An unexpected error occurred:', error);
+            if (axios.isAxiosError(error)) {
+                console.error('Axios error:', error.response?.data || error.message);
+            } else {
+                console.error('An unexpected error occurred:', error);
+            }
           }
       }
   };
@@ -98,7 +118,10 @@ export default function SignUpPage() {
     <CardHeader>
         <CardTitle>新規登録</CardTitle>
         <CardAction>
-            <Button asChild><Link href='/login'>ログイン</Link></Button>
+            {/* Linkにもredirectパラメータを引き継ぐ */}
+            <Button asChild>
+                <Link href={redirect ? `/login?redirect=${redirect}` : '/login'}>ログイン</Link>
+            </Button>
         </CardAction>
     </CardHeader>
     <CardContent>
