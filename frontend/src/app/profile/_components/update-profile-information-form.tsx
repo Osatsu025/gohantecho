@@ -2,14 +2,14 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios from "@/lib/axios";
-import { AxiosError } from "axios";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 
 const UpdateProfileComponent = () => {
@@ -20,7 +20,6 @@ const UpdateProfileComponent = () => {
     });
 
     const router = useRouter();
-    const pathname = usePathname();
 
     type FormValues = z.infer<typeof formScheme>;
 
@@ -40,16 +39,12 @@ const UpdateProfileComponent = () => {
             name: user.name,
             email: user.email,
           });
-        } catch (error: any) {
-          if (error instanceof AxiosError && error.response?.status === 401) {
-            router.push(`/login?redirect=${pathname}`);
-          } else {
-            console.error('ユーザー情報の取得に失敗しました:', error);
-          }
+        } catch (error) {
+          console.error('ユーザー情報の取得に失敗しました:', error);
         }
       };
       fetchUser();
-    }, [form, router]);
+    }, [form.reset]);
 
     async function onSubmit(values: FormValues) {
       try {
@@ -58,13 +53,8 @@ const UpdateProfileComponent = () => {
         await axios.patch('/api/profile', values);
         
         router.refresh();
+        toast.success('プロフィールを更新しました。');
       } catch (error: any) {
-        if (error instanceof AxiosError && error.response?.status === 401) {
-          router.push(`/login?redirect=${pathname}`);
-
-          return;
-        }
-
         if (error.response?.status === 422) {
           Object.keys(error.response.data.errors).forEach((key) => {
             const field = key as keyof FormValues;
@@ -76,6 +66,7 @@ const UpdateProfileComponent = () => {
             type: 'server',
             message: '更新に失敗しました。もう一度お試しください'
           });
+          toast.error('プロフィールの更新に失敗しました。');
           console.error('An unexpected error occurred:', error);
         }
       }
@@ -98,6 +89,7 @@ const UpdateProfileComponent = () => {
                   <FormControl>
                     <Input type='text' placeholder='馬井ごはん' {...field} />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -110,6 +102,7 @@ const UpdateProfileComponent = () => {
                   <FormControl>
                     <Input type='email' placeholder='gohan@example.com' {...field} />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
