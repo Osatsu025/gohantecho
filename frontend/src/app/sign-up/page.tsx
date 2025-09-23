@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import axios from '@/lib/axios'; // 設定済みのaxiosインスタンスをインポート
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { email, z } from "zod";
+import { z } from "zod";
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -97,13 +98,15 @@ export default function SignUpPage() {
                       const message = error.response.data.errors[key].join(', ');
                       form.setError(fieldName, { type: 'server', message });
                   }
-              })
+              });
+              toast.error('入力内容を確認してください。');
           } else {
               // その他のネットワークエラーなど
                 form.setError('root.serverError', {
                     type: 'server',
                     message: '登録に失敗しました。もう一度お試しください'
                 });
+                toast.error('登録に失敗しました。もう一度お試しください。');
             if (axios.isAxiosError(error)) {
                 console.error('Axios error:', error.response?.data || error.message);
             } else {

@@ -6,6 +6,7 @@ import axios from '@/lib/axios';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from "zod";
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -70,12 +71,14 @@ export default function LoginPage() {
                     const message = error.response.data.errors[field].join(', ');
                     form.setError(field, { type: 'server', message });
                 });
+                toast.error('入力内容を確認してください。');
             } else {
                 // その他のネットワークエラーなど
                 form.setError('root.serverError', {
                     type: 'server',
                     message: 'ログインに失敗しました。もう一度お試しください'
                 });
+                toast.error('ログインに失敗しました。もう一度お試しください。');
                 if (axios.isAxiosError(error)) {
                     console.error('Axios error:', error.response?.data || error.message);
                 } else {
