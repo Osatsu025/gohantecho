@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import axios from '@/lib/axios'; // 設定済みのaxiosインスタンスをインポート
+import axios from '@/lib/axios';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from "zod";
@@ -34,9 +34,10 @@ const formScheme = z.object({
 })
 
 export default function LoginPage() {
+
     const router = useRouter();
     const searchParams = useSearchParams();
-    const redirectUrl = searchParams.get('redirect') || '/';
+    const redirect = searchParams.get('redirect');
 
     type FormValues = z.infer<typeof formScheme>;
 
@@ -55,11 +56,10 @@ export default function LoginPage() {
             await axios.get('/sanctum/csrf-cookie');
 
             // 2. ログインAPIを呼び出し
-            await axios.post('/login', values);
+            await axios.post('/api/login', values);
 
-            // 3. ログイン成功後、ダッシュボードなどにリダイレクト
-            router.push(redirectUrl);
-            router.refresh();
+            // 3. ログイン後、redirectパラメータがあればそこへ、なければ'/'へリダイレクト
+            router.push(redirect || '/');
 
         } catch (error: any) {
             // 4. エラーハンドリング
@@ -76,7 +76,11 @@ export default function LoginPage() {
                     type: 'server',
                     message: 'ログインに失敗しました。もう一度お試しください'
                 });
-                console.error('An unexpected error occurred:', error);
+                if (axios.isAxiosError(error)) {
+                    console.error('Axios error:', error.response?.data || error.message);
+                } else {
+                    console.error('An unexpected error occurred:', error);
+                }
             }
         }
     };
@@ -86,7 +90,10 @@ export default function LoginPage() {
             <CardHeader>
                 <CardTitle>ログイン</CardTitle>
                 <CardAction>
-                    <Button asChild><Link href='/sign-up'>新規登録</Link></Button>
+                    {/* Linkにもredirectパラメータを引き継ぐ */}
+                    <Button asChild>
+                        <Link href={redirect ? `/sign-up?redirect=${redirect}` : '/sign-up'}>新規登録</Link>
+                    </Button>
                 </CardAction>
             </CardHeader>
             <CardContent>
