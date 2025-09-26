@@ -48,8 +48,6 @@ const UpdateProfileComponent = () => {
 
     async function onSubmit(values: FormValues) {
       try {
-        await axios.get('/sanctum/csrf-cookie');
-
         await axios.patch('/api/profile', values);
         
         router.refresh();
