@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 class UserDeleteRequest extends FormRequest
 {
@@ -26,10 +28,18 @@ class UserDeleteRequest extends FormRequest
         ];
     }
 
-        protected function prepareForValidation()
+    protected function prepareForValidation()
     {
         $this->merge([
             'is_delete_menus' => $this->boolean('is_delete_menus'),
         ]);
     } 
+
+    protected function failedValidation(Validator $validator)
+    {
+        $data = [
+            'errors' => $validator->errors()->toArray(),
+        ];
+        throw new HttpResponseException(response()->json($data, 422));
+    }
 }
