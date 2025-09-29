@@ -4,37 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ProfileUpdateRequest;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use App\Http\Requests\UserDeleteRequest;
 use Illuminate\Support\Facades\DB as FacadesDB;
 use Illuminate\Support\Facades\Log as FacadesLog;
 use Illuminate\Http\JsonResponse;
 
 class ProfileController extends Controller
 {
-    // /**
-    //  * Display a listing of the resource.
-    //  */
-    // public function index()
-    // {
-    //     //
-    // }
-
-    // /**
-    //  * Store a newly created resource in storage.
-    //  */
-    // public function store(Request $request)
-    // {
-    //     //
-    // }
-
-    // /**
-    //  * Display the specified resource.
-    //  */
-    // public function show(string $id)
-    // {
-    //     //
-    // }
-
     /**
      * Update the specified resource in storage.
      */
@@ -63,11 +40,35 @@ class ProfileController extends Controller
         return response()->json(['status' => 'profile-updated']);
     }
 
-    // /**
-    //  * Remove the specified resource from storage.
-    //  */
-    // public function destroy(Request $request): JsonResponse
-    // {
-    //     //
-    // }
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(UserDeleteRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $should_delete_menus = $request->boolean('is_delete_menus');
+
+        try {
+            FacadesDB::transaction(function () use ($user, $should_delete_menus) {
+                if ($should_delete_menus) {
+                    $user->menus()->delete();
+                }
+                $user->delete();
+            });
+        } catch (\Throwable $e) {
+            FacadesLog::error('アカウントの削除に失敗しました', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json(['error_message', 'アカウントの削除に失敗しました。時間をおいて再度お試しください']);
+        }
+
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return response()->json(['status' => 'user-deleted']);
+    }
 }
