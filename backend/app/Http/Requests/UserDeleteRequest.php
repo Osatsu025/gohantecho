@@ -26,7 +26,7 @@ class UserDeleteRequest extends FormRequest
         ];
     }
 
-        protected function prepareForValidation()
+    protected function prepareForValidation()
     {
         $this->merge([
             'is_delete_menus' => $this->boolean('is_delete_menus'),

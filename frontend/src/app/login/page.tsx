@@ -1,103 +1,147 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import axios from '@/lib/axios'; // 設定済みのaxiosインスタンスをインポート
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import axios from '@/lib/axios';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from "zod";
+import { toast } from 'sonner';
 
-// エラー状態の型定義
-type State = {
-    errors?: {
-        email?: string[];
-        password?: string[];
-    };
-    message?: string;
-} | undefined;
+import { Button } from '@/components/ui/button';
+import {
+    Form,
+    FormControl,
+    FormDescription,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+    Card,
+    CardAction,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
+
+const formScheme = z.object({
+    email: z.email({message: '有効なメールアドレスではありません'}),
+    password: z.string().min(1, { message: 'パスワードを入力してください' }),
+})
 
 export default function LoginPage() {
+
     const router = useRouter();
-    const [state, setState] = useState<State>();
-    const [isLoading, setIsLoading] = useState(false);
+    const searchParams = useSearchParams();
+    const redirect = searchParams.get('redirect');
 
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        setIsLoading(true);
-        setState(undefined); // 以前のエラーをクリア
+    type FormValues = z.infer<typeof formScheme>;
 
-        const formData = new FormData(event.currentTarget);
-        const email = formData.get('email');
-        const password = formData.get('password');
+    const form = useForm<FormValues>({
+        resolver: zodResolver(formScheme),
+        defaultValues: {
+            email: "",
+            password: "",
+        },
+    });
+
+    async function onSubmit(values: FormValues) {
 
         try {
             // 1. CSRF Cookieを取得
             await axios.get('/sanctum/csrf-cookie');
 
             // 2. ログインAPIを呼び出し
-            await axios.post('/login', {
-                email,
-                password,
-            });
+            await axios.post('/api/login', values);
 
-            // 3. ログイン成功後、ダッシュボードなどにリダイレクト
-            // 必要であれば、ここでユーザー情報を再取得してからリダイレクトします。
-            // 例: await mutateUser();
-            router.push('/dashboard'); // 遷移先のパスを指定してください
+            // 3. ログイン後、redirectパラメータがあればそこへ、なければ'/'へリダイレクト
+            router.push(redirect || '/');
 
         } catch (error: any) {
             // 4. エラーハンドリング
             if (error.response?.status === 422) {
-                // バリデーションエラーの場合
-                setState({
-                    errors: error.response.data.errors,
+                // react-hook-formにエラーをセット
+                Object.keys(error.response.data.errors).forEach((key) => {
+                    const field = key as keyof FormValues;
+                    const message = error.response.data.errors[field].join(', ');
+                    form.setError(field, { type: 'server', message });
                 });
+                toast.error('入力内容を確認してください。');
             } else {
                 // その他のネットワークエラーなど
-                setState({
-                    message: 'ログインに失敗しました。もう一度お試しください。',
+                form.setError('root.serverError', {
+                    type: 'server',
+                    message: 'ログインに失敗しました。もう一度お試しください'
                 });
-                console.error('An unexpected error occurred:', error);
+                toast.error('ログインに失敗しました。もう一度お試しください。');
+                if (axios.isAxiosError(error)) {
+                    console.error('Axios error:', error.response?.data || error.message);
+                } else {
+                    console.error('An unexpected error occurred:', error);
+                }
             }
-        } finally {
-            setIsLoading(false);
         }
     };
 
     return (
-        <form onSubmit={handleSubmit}>
-            {/* Email Input */}
-            <div>
-                <label htmlFor="email">Email</label>
-                <input id="email" type="email" name="email" required />
-                {state?.errors?.email && (
-                    <div style={{ color: 'red' }}>
-                        {state.errors.email.map((error, i) => <p key={i}>{error}</p>)}
-                    </div>
-                )}
-            </div>
+        <Card className='w-full max-w-sm'>
+            <CardHeader>
+                <CardTitle>ログイン</CardTitle>
+                <CardAction>
+                    {/* Linkにもredirectパラメータを引き継ぐ */}
+                    <Button asChild>
+                        <Link href={redirect ? `/sign-up?redirect=${redirect}` : '/sign-up'}>新規登録</Link>
+                    </Button>
+                </CardAction>
+            </CardHeader>
+            <CardContent>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-8' id='login-form'>
+                        <FormField
+                            control={form.control}
+                            name='email'
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>メールアドレス</FormLabel>
+                                    <FormControl>
+                                        <Input type='email' placeholder='gohan@example.com' {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField 
+                            control={form.control}
+                            name='password'
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>パスワード</FormLabel>
+                                    <FormControl>
+                                        <Input type='password' {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
-            {/* Password Input */}
-            <div>
-                <label htmlFor="password">Password</label>
-                <input id="password" type="password" name="password" required />
-                 {state?.errors?.password && (
-                    <div style={{ color: 'red' }}>
-                        {state.errors.password.map((error, i) => <p key={i}>{error}</p>)}
-                    </div>
-                )}
-            </div>
-
-            {/* General Error Message */}
-            {state?.message && (
-                <div style={{ color: 'red' }}>
-                    <p>{state.message}</p>
-                </div>
-            )}
-
-            {/* Submit Button */}
-            <div>
-                <button type="submit" disabled={isLoading}>
-                    {isLoading ? 'ログイン中...' : 'ログイン'}
-                </button>
-            </div>
-        </form>
-    );
+                        {form.formState.errors.root?.serverError && (
+                            <p className='text-sm font-medium text-destructive'>
+                                {form.formState.errors.root.serverError.message}
+                            </p>
+                        )}
+                    </form>
+                </Form>
+            </CardContent>
+            <CardFooter className='flex-col gap-2'>
+                <Button type='submit' className='w-full' disabled={form.formState.isSubmitting} form='login-form'>
+                    {form.formState.isSubmitting ? 'ログイン中…' : 'ログイン'}
+                </Button>
+            </CardFooter>
+        </Card>
+    )
 }
