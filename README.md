@@ -13,12 +13,13 @@
   docker run --rm -u "$(id -u):$(id -g)" -v "$(pwd):/var/www/html" -w /var/www/html laravelsail/php84-composer:latest composer install --ignore-platform-reqs
   ```
 
-- `.env`ファイルを作成し、`APP_KEY`を作成
+- `.env`ファイルを作成し、必要な環境変数を埋める
   ```shell
     cp .env.example .env
-    ./vendor/bin/sail artisan key:generate
   ```
-- 必要な環境変数を埋める
+  > [!IMPORTANT]
+  > Sail環境でデータベースに接続するため、`.env` の `DB_HOST` を `mysql` に変更してください。
+  > `DB_HOST=mysql`
 
 ## フロントエンド(Next.js)のセットアップ
 - ターミナルで`gohantecho/frontend`に移動
@@ -41,6 +42,11 @@
 - バックエンドとフロントエンドが同時に起動する
   - バックエンド: http://localhost:8000
   - フロントエンド: http://localhost:3000
+
+- 初回起動時のみ、アプリケーションキーを生成する
+  ```shell
+  ./vendor/bin/sail artisan key:generate
+  ```
 
 - データベースのマイグレーションを実行
   ```shell
